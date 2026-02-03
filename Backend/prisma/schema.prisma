@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==============================
+// ENUMS
+// ==============================
+
+enum Role {
+  ADMIN
+  STAFF
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PackageStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum BookingStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum TransportType {
+  BUS
+  FLIGHT
+  TRAIN
+}
+
+// ==============================
+// USER
+// ==============================
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  phone     String?
+  role      Role     @default(CUSTOMER)
+  status    UserStatus @default(ACTIVE)
+
+  bookings       Booking[]
+  reviews        Review[]
+  logs           ActivityLog[]
+  notifications  Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==============================
+// DESTINATION & PACKAGE
+// ==============================
+
+model Destination {
+  id          Int      @id @default(autoincrement())
+  name        String
+  city        String
+  country     String
+  description String?
+  thumbnail   String?
+
+  packages  TravelPackage[]
+
+  createdAt DateTime @default(now())
+}
+
+model TravelPackage {
+  id            Int @id @default(autoincrement())
+  destinationId Int
+  title         String
+  description   String
+  durationDays  Int
+  price         Float
+  quota         Int
+  status        PackageStatus @default(ACTIVE)
+
+  destination Destination @relation(fields: [destinationId], references: [id])
+  itineraries PackageItinerary[]
+  facilities  PackageFacility[]
+  schedules   Schedule[]
+  hotels      PackageHotel[]
+  reviews     Review[]
+
+  createdAt DateTime @default(now())
+
+  @@index([destinationId])
+}
+
+model PackageItinerary {
+  id        Int @id @default(autoincrement())
+  packageId Int
+  dayNumber Int
+  title     String
+  description String
+
+  travelPackage TravelPackage @relation(fields: [packageId], references: [id])
+
+  @@index([packageId])
+}
+
+model PackageFacility {
+  id        Int @id @default(autoincrement())
+  packageId Int
+  facility  String
+
+  travelPackage TravelPackage @relation(fields: [packageId], references: [id])
+
+  @@index([packageId])
+}
+
+// ==============================
+// HOTEL
+// ==============================
+
+model Hotel {
+  id      Int @id @default(autoincrement())
+  name    String
+  city    String
+  star    Int
+  address String
+
+  packages PackageHotel[]
+}
+
+model PackageHotel {
+  id         Int @id @default(autoincrement())
+  packageId  Int
+  hotelId    Int
+  nightCount Int
+
+  travelPackage TravelPackage @relation(fields: [packageId], references: [id])
+  hotel         Hotel         @relation(fields: [hotelId], references: [id])
+
+  @@index([packageId])
+  @@index([hotelId])
+}
+
+// ==============================
+// SCHEDULE & BOOKING
+// ==============================
+
+model Schedule {
+  id             Int @id @default(autoincrement())
+  packageId      Int
+  departureDate  DateTime
+  returnDate     DateTime
+  availableQuota Int
+
+  travelPackage TravelPackage @relation(fields: [packageId], references: [id])
+  bookings      Booking[]
+
+  @@index([packageId])
+}
+
+model Booking {
+  id          Int @id @default(autoincrement())
+  userId      Int
+  scheduleId  Int
+  bookingCode String @unique
+  totalPrice  Float
+  status      BookingStatus @default(PENDING)
+
+  user      User     @relation(fields: [userId], references: [id])
+  schedule  Schedule @relation(fields: [scheduleId], references: [id])
+  travelers BookingTraveler[]
+  payments  Payment[]
+  promos    BookingPromo[]
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([scheduleId])
+}
+
+// ==============================
+// BOOKING DETAIL
+// ==============================
+
+model BookingTraveler {
+  id             Int @id @default(autoincrement())
+  bookingId      Int
+  fullName       String
+  identityNumber String
+  birthDate      DateTime
+  gender         String
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+}
+
+// ==============================
+// PAYMENT & PROMO
+// ==============================
+
+model Payment {
+  id            Int @id @default(autoincrement())
+  bookingId     Int
+  paymentMethod String
+  amount        Float
+  status        PaymentStatus @default(PENDING)
+  paidAt        DateTime?
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  proof   PaymentProof?
+
+  @@index([bookingId])
+}
+
+model PaymentProof {
+  id        Int @id @default(autoincrement())
+  paymentId Int @unique
+  filePath  String
+  uploadedAt DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+}
+
+model Promo {
+  id              Int @id @default(autoincrement())
+  code            String @unique
+  discountPercent Int
+  maxDiscount     Float
+  expiredAt       DateTime
+  status          Boolean @default(true)
+
+  bookings BookingPromo[]
+}
+
+model BookingPromo {
+  id        Int @id @default(autoincrement())
+  bookingId Int
+  promoId   Int
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  promo   Promo   @relation(fields: [promoId], references: [id])
+
+  @@index([bookingId])
+  @@index([promoId])
+}
+
+// ==============================
+// REVIEW, NOTIFICATION, LOG
+// ==============================
+
+model Review {
+  id        Int @id @default(autoincrement())
+  userId    Int
+  packageId Int
+  rating    Int
+  comment   String?
+
+  user    User          @relation(fields: [userId], references: [id])
+  package TravelPackage @relation(fields: [packageId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([packageId])
+}
+
+model Notification {
+  id      Int @id @default(autoincrement())
+  userId  Int
+  title   String
+  message String
+  isRead  Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ActivityLog {
+  id          Int @id @default(autoincrement())
+  userId      Int
+  action      String
+  description String
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
