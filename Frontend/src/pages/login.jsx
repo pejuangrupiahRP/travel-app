@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom"; // Tambahkan ini
 import api from "../services/api";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  
+  const navigate = useNavigate(); // Tambahkan ini
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -16,7 +19,10 @@ export default function Login() {
       });
 
       localStorage.setItem("token", res.data.token);
-      alert("Login berhasil");
+      
+      // Ganti alert menjadi navigasi
+      navigate("/admin/dashboard"); 
+      
     } catch (err) {
       alert(err.response?.data?.message || "Login gagal");
     } finally {

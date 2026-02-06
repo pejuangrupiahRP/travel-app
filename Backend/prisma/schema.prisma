@@ -39,32 +39,67 @@ enum PaymentStatus {
   FAILED
 }
 
-enum TransportType {
-  BUS
-  FLIGHT
-  TRAIN
+// ==============================
+// MASTER DATA (NEGARA & KOTA)
+// ==============================
+
+model Country {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  cities       City[]
+  destinations Destination[]
+}
+
+model City {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  countryId    Int
+  country      Country       @relation(fields: [countryId], references: [id])
+  destinations Destination[]
+  hotels       Hotel[]
+
+  @@index([countryId])
 }
 
 // ==============================
-// USER
+// USER & IDENTITY (PROFIL)
 // ==============================
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  phone     String?
-  role      Role     @default(CUSTOMER)
-  status    UserStatus @default(ACTIVE)
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  password      String
+  role          Role           @default(CUSTOMER)
+  status        UserStatus     @default(ACTIVE)
+  
+  // Relasi ke tabel profil (Data Individu)
+  profile       Profile?
+  
+  // Transaksi & Interaksi
+  bookings      Booking[]
+  reviews       Review[]
+  logs          ActivityLog[]
+  notifications Notification[]
+  
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
 
-  bookings       Booking[]
-  reviews        Review[]
-  logs           ActivityLog[]
-  notifications  Notification[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Profile {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Informasi Individu
+  fullName       String
+  phone          String?
+  gender         String?
+  birthDate      DateTime?
+  address        String?   @db.Text
+  identityNumber String?   // NIK / No. Paspor
+  avatar         String?   // URL Foto Profil
+  
+  updatedAt      DateTime  @updatedAt
 }
 
 // ==============================
@@ -72,57 +107,56 @@ model User {
 // ==============================
 
 model Destination {
-  id          Int      @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
   name        String
-  city        String
-  country     String
-  description String?
+  description String?         @db.Text
   thumbnail   String?
+  cityId      Int
+  countryId   Int
+  city        City            @relation(fields: [cityId], references: [id])
+  country     Country         @relation(fields: [countryId], references: [id])
+  packages    TravelPackage[]
+  createdAt   DateTime        @default(now())
 
-  packages  TravelPackage[]
-
-  createdAt DateTime @default(now())
+  @@index([cityId])
+  @@index([countryId])
 }
 
 model TravelPackage {
-  id            Int @id @default(autoincrement())
+  id            Int                @id @default(autoincrement())
   destinationId Int
   title         String
-  description   String
+  description   String             @db.Text
   durationDays  Int
   price         Float
   quota         Int
-  status        PackageStatus @default(ACTIVE)
-
-  destination Destination @relation(fields: [destinationId], references: [id])
-  itineraries PackageItinerary[]
-  facilities  PackageFacility[]
-  schedules   Schedule[]
-  hotels      PackageHotel[]
-  reviews     Review[]
-
-  createdAt DateTime @default(now())
+  status        PackageStatus      @default(ACTIVE)
+  destination   Destination        @relation(fields: [destinationId], references: [id])
+  itineraries   PackageItinerary[]
+  facilities    PackageFacility[]
+  schedules     Schedule[]
+  hotels        PackageHotel[]
+  reviews       Review[]
+  createdAt     DateTime           @default(now())
 
   @@index([destinationId])
 }
 
 model PackageItinerary {
-  id        Int @id @default(autoincrement())
-  packageId Int
-  dayNumber Int
-  title     String
-  description String
-
+  id            Int           @id @default(autoincrement())
+  packageId     Int
+  dayNumber     Int
+  title         String
+  description   String        @db.Text
   travelPackage TravelPackage @relation(fields: [packageId], references: [id])
 
   @@index([packageId])
 }
 
 model PackageFacility {
-  id        Int @id @default(autoincrement())
-  packageId Int
-  facility  String
-
+  id            Int           @id @default(autoincrement())
+  packageId     Int
+  facility      String
   travelPackage TravelPackage @relation(fields: [packageId], references: [id])
 
   @@index([packageId])
@@ -133,21 +167,22 @@ model PackageFacility {
 // ==============================
 
 model Hotel {
-  id      Int @id @default(autoincrement())
-  name    String
-  city    String
-  star    Int
-  address String
-
+  id       Int            @id @default(autoincrement())
+  name     String
+  cityId   Int
+  star     Int
+  address  String         @db.Text
+  city     City           @relation(fields: [cityId], references: [id])
   packages PackageHotel[]
+
+  @@index([cityId])
 }
 
 model PackageHotel {
-  id         Int @id @default(autoincrement())
-  packageId  Int
-  hotelId    Int
-  nightCount Int
-
+  id            Int           @id @default(autoincrement())
+  packageId     Int
+  hotelId       Int
+  nightCount    Int
   travelPackage TravelPackage @relation(fields: [packageId], references: [id])
   hotel         Hotel         @relation(fields: [hotelId], references: [id])
 
@@ -160,51 +195,43 @@ model PackageHotel {
 // ==============================
 
 model Schedule {
-  id             Int @id @default(autoincrement())
+  id             Int           @id @default(autoincrement())
   packageId      Int
   departureDate  DateTime
   returnDate     DateTime
   availableQuota Int
-
-  travelPackage TravelPackage @relation(fields: [packageId], references: [id])
-  bookings      Booking[]
+  travelPackage  TravelPackage @relation(fields: [packageId], references: [id])
+  bookings       Booking[]
 
   @@index([packageId])
 }
 
 model Booking {
-  id          Int @id @default(autoincrement())
+  id          Int               @id @default(autoincrement())
   userId      Int
   scheduleId  Int
-  bookingCode String @unique
+  bookingCode String            @unique
   totalPrice  Float
-  status      BookingStatus @default(PENDING)
-
-  user      User     @relation(fields: [userId], references: [id])
-  schedule  Schedule @relation(fields: [scheduleId], references: [id])
-  travelers BookingTraveler[]
-  payments  Payment[]
-  promos    BookingPromo[]
-
-  createdAt DateTime @default(now())
+  status      BookingStatus     @default(PENDING)
+  user        User              @relation(fields: [userId], references: [id])
+  schedule    Schedule          @relation(fields: [scheduleId], references: [id])
+  travelers   BookingTraveler[]
+  payments    Payment[]
+  promos      BookingPromo[]
+  createdAt   DateTime          @default(now())
 
   @@index([userId])
   @@index([scheduleId])
 }
 
-// ==============================
-// BOOKING DETAIL
-// ==============================
-
 model BookingTraveler {
-  id             Int @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   bookingId      Int
   fullName       String
   identityNumber String
   birthDate      DateTime
   gender         String
-
-  booking Booking @relation(fields: [bookingId], references: [id])
+  booking        Booking  @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
 }
@@ -214,46 +241,42 @@ model BookingTraveler {
 // ==============================
 
 model Payment {
-  id            Int @id @default(autoincrement())
+  id            Int           @id @default(autoincrement())
   bookingId     Int
   paymentMethod String
   amount        Float
   status        PaymentStatus @default(PENDING)
   paidAt        DateTime?
-
-  booking Booking @relation(fields: [bookingId], references: [id])
-  proof   PaymentProof?
+  booking       Booking       @relation(fields: [bookingId], references: [id])
+  proof         PaymentProof?
 
   @@index([bookingId])
 }
 
 model PaymentProof {
-  id        Int @id @default(autoincrement())
-  paymentId Int @unique
-  filePath  String
+  id         Int      @id @default(autoincrement())
+  paymentId  Int      @unique
+  filePath   String
   uploadedAt DateTime @default(now())
-
-  payment Payment @relation(fields: [paymentId], references: [id])
+  payment    Payment  @relation(fields: [paymentId], references: [id])
 }
 
 model Promo {
-  id              Int @id @default(autoincrement())
-  code            String @unique
+  id              Int            @id @default(autoincrement())
+  code            String         @unique
   discountPercent Int
   maxDiscount     Float
   expiredAt       DateTime
-  status          Boolean @default(true)
-
-  bookings BookingPromo[]
+  status          Boolean        @default(true)
+  bookings        BookingPromo[]
 }
 
 model BookingPromo {
-  id        Int @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   bookingId Int
   promoId   Int
-
-  booking Booking @relation(fields: [bookingId], references: [id])
-  promo   Promo   @relation(fields: [promoId], references: [id])
+  booking   Booking @relation(fields: [bookingId], references: [id])
+  promo     Promo   @relation(fields: [promoId], references: [id])
 
   @@index([bookingId])
   @@index([promoId])
@@ -264,44 +287,38 @@ model BookingPromo {
 // ==============================
 
 model Review {
-  id        Int @id @default(autoincrement())
+  id        Int           @id @default(autoincrement())
   userId    Int
   packageId Int
   rating    Int
-  comment   String?
-
-  user    User          @relation(fields: [userId], references: [id])
-  package TravelPackage @relation(fields: [packageId], references: [id])
-
-  createdAt DateTime @default(now())
+  comment   String?       @db.Text
+  user      User          @relation(fields: [userId], references: [id])
+  package   TravelPackage @relation(fields: [packageId], references: [id])
+  createdAt DateTime      @default(now())
 
   @@index([userId])
   @@index([packageId])
 }
 
 model Notification {
-  id      Int @id @default(autoincrement())
-  userId  Int
-  title   String
-  message String
-  isRead  Boolean @default(false)
-
-  user User @relation(fields: [userId], references: [id])
-
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
 
   @@index([userId])
 }
 
 model ActivityLog {
-  id          Int @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   userId      Int
   action      String
-  description String
-
-  user User @relation(fields: [userId], references: [id])
-
-  createdAt DateTime @default(now())
+  description String   @db.Text
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
 
   @@index([userId])
 }
