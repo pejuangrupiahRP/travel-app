@@ -139,7 +139,7 @@ const AdminSidebar = ({ isOpen, toggleSidebar }) => {
           <div className="flex items-center gap-2">
             <span className="text-3xl">✈️</span>
             <div>
-              <h2 className="text-xl font-bold">TravelKu</h2>
+              <h2 className="text-xl font-bold">TravelGo</h2>
               <p className="text-xs text-indigo-200">Admin Panel</p>
             </div>
           </div>

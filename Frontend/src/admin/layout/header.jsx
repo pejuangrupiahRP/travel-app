@@ -54,7 +54,7 @@ const AdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
           {/* Logo */}
           <div className="flex items-center gap-2">
             <span className="text-2xl">✈️</span>
-            <span className="text-xl font-bold text-indigo-600 hidden sm:block">Admin TravelKu</span>
+            <span className="text-xl font-bold text-indigo-600 hidden sm:block">Admin TravelGo</span>
           </div>
         </div>
 
